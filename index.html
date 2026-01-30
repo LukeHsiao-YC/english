@@ -1,50 +1,197 @@
-import React, { useState, useEffect } from 'react';
-import { Heart, Sword, Shield, Zap, RefreshCw, Trophy, BookOpen, Volume2, Star } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Sword, RefreshCw, Trophy, BookOpen, Volume2, Star, Puzzle, ArrowRight, ArrowLeft, RotateCw, AlertCircle } from 'lucide-react';
 
-// 單字資料庫 (包含單字、音標、解釋、例句)
-const wordDatabase = [
-  { id: 1, word: 'Ambiguous', phonetic: '/æmˈbɪɡ.ju.əs/', meaning: '模稜兩可的', options: ['模稜兩可的', '巨大的', '熱情的', '危險的'], example: 'The instructions were ambiguous, so I was unsure what to do.' },
-  { id: 2, word: 'Benevolent', phonetic: '/bəˈnev.əl.ənt/', meaning: '仁慈的', options: ['殘酷的', '仁慈的', '富有的', '自私的'], example: 'The benevolent king gave food to the poor.' },
-  { id: 3, word: 'Candid', phonetic: '/ˈkæn.dɪd/', meaning: '坦率的', options: ['隱密的', '甜美的', '坦率的', '複雜的'], example: 'To be candid, I think this plan needs more work.' },
-  { id: 4, word: 'Diligent', phonetic: '/ˈdɪl.ə.dʒənt/', meaning: '勤奮的', options: ['懶惰的', '快速的', '幸運的', '勤奮的'], example: 'She is a diligent student who always finishes her homework.' },
-  { id: 5, word: 'Empathy', phonetic: '/ˈem.pə.θi/', meaning: '同理心', options: ['同理心', '嫉妒', '憤怒', '冷漠'], example: 'He felt great empathy for the victims of the earthquake.' },
-  { id: 6, word: 'Fluctuate', phonetic: '/ˈflʌk.tʃu.eɪt/', meaning: '波動', options: ['穩定', '波動', '結冰', '燃燒'], example: 'Vegetable prices fluctuate according to the season.' },
-  { id: 7, word: 'Genuine', phonetic: '/ˈdʒen.ju.ɪn/', meaning: '真正的', options: ['虛假的', '昂貴的', '真正的', '玻璃製的'], example: 'Is this leather genuine or fake?' },
-  { id: 8, word: 'Hypothesis', phonetic: '/haɪˈpɒθ.ə.sɪs/', meaning: '假設', options: ['事實', '結論', '假設', '歷史'], example: 'Several hypotheses for global warming have been suggested.' },
-  { id: 9, word: 'Inevitable', phonetic: '/ɪˈnev.ɪ.tə.bəl/', meaning: '不可避免的', options: ['偶然的', '不可避免的', '可預防的', '幸運的'], example: 'Change is inevitable in life.' },
-  { id: 10, word: 'Juxtapose', phonetic: '/ˌdʒʌk.stəˈpəʊz/', meaning: '並列', options: ['分開', '並列', '隱藏', '破壞'], example: 'The exhibition juxtaposes Picasso\'s early drawings with his later works.' },
+// --- 核心單字資料庫 (包含您提供的所有分類) ---
+// 為了節省空間並提高效率，我們使用緊湊的格式：[英文, 中文]
+// 程式會自動將這些轉換為遊戲所需的詳細物件
+const rawVocabularyList = [
+  // --- Numbers (數字) ---
+  ["zero", "零"], ["one", "一"], ["two", "二"], ["three", "三"], ["four", "四"],
+  ["five", "五"], ["six", "六"], ["seven", "七"], ["eight", "八"], ["nine", "九"],
+  ["ten", "十"], ["eleven", "十一"], ["twelve", "十二"], ["thirteen", "十三"], ["fourteen", "十四"],
+  ["fifteen", "十五"], ["sixteen", "十六"], ["seventeen", "十七"], ["eighteen", "十八"], ["nineteen", "十九"],
+  ["twenty", "二十"], ["thirty", "三十"], ["forty", "四十"], ["fifty", "五十"], ["sixty", "六十"],
+  ["seventy", "七十"], ["eighty", "八十"], ["ninety", "九十"], ["hundred", "百"],
+  
+  // --- People (人物/稱謂) ---
+  ["I", "我"], ["You", "你(們)"], ["We", "我們"], ["They", "他們"],
+  ["He", "他"], ["him", "他(受格)"], ["She", "她"], ["It", "它/牠"],
+  ["my", "我的"], ["your", "你的"], ["his", "他的"], ["her", "她的"], ["its", "它的"],
+  ["grandmother", "祖母/外祖母"], ["grandfather", "祖父/外祖父"], ["mother", "媽媽"], ["mom", "媽媽(口語)"],
+  ["father", "爸爸"], ["dad", "爸爸(口語)"], ["sister", "姊妹"], ["brother", "兄弟"],
+  ["baby", "嬰兒"], ["girl", "女孩"], ["boy", "男孩"], ["woman", "女人"], ["man", "男人"],
+  ["cook", "廚師"], ["teacher", "老師"], ["student", "學生"], ["farmer", "農夫"],
+  ["doctor", "醫生"], ["nurse", "護理師"], ["driver", "司機"], ["friend", "朋友"],
+  
+  // --- Body Parts (身體) ---
+  ["head", "頭"], ["hair", "頭髮"], ["eye", "眼睛"], ["nose", "鼻子"], ["mouth", "嘴巴"],
+  ["ear", "耳朵"], ["hand", "手"], ["leg", "腿"], ["foot", "腳"], ["feet", "腳(複數)"],
+  ["face", "臉"],
+  
+  // --- Clothing (服飾) ---
+  ["hat", "帽子"], ["glasses", "眼鏡"], ["shirt", "襯衫"], ["shorts", "短褲"],
+  ["pants", "長褲"], ["skirt", "裙子"], ["dress", "洋裝"], ["socks", "襪子"],
+  ["shoes", "鞋子"], ["boots", "靴子"], ["jacket", "夾克"], ["coat", "大衣/外套"],
+  ["T-shirt", "運動衫"],
+  
+  // --- Animals (動物) ---
+  ["bear", "熊"], ["dog", "狗"], ["cat", "貓"], ["bird", "鳥"], ["rabbit", "兔子"],
+  ["frog", "青蛙"], ["fish", "魚"], ["chicken", "雞"], ["turtle", "烏龜"],
+  ["lion", "獅子"], ["tiger", "老虎"], ["monkey", "猴子"], ["giraffe", "長頸鹿"],
+  ["fox", "狐狸"], ["zebra", "斑馬"], ["pig", "豬"], ["elephant", "大象"],
+  ["ant", "螞蟻"], ["snake", "蛇"], ["horse", "馬"],
+  
+  // --- Things (物品) ---
+  ["pen", "原子筆"], ["pencil", "鉛筆"], ["marker", "麥克筆"], ["eraser", "橡皮擦"],
+  ["ruler", "尺"], ["book", "書"], ["bag", "袋子/包包"], ["desk", "書桌"],
+  ["table", "餐桌"], ["chair", "椅子"], ["crayon", "蠟筆"], ["box", "箱子"],
+  ["door", "門"], ["window", "窗戶"], ["picture", "圖片/照片"], ["TV", "電視"],
+  ["sofa", "沙發"], ["light", "光/燈"], ["bed", "床"], ["lamp", "檯燈"],
+  ["clock", "時鐘"], ["cell phone", "手機"], ["video game", "電動玩具"], ["computer", "電腦"],
+  ["cup", "杯子"], ["mug", "馬克杯"], ["bowl", "碗"], ["ball", "球"],
+  ["yo-yo", "溜溜球"], ["bat", "球棒"], ["robot", "機器人"], ["kite", "風箏"],
+  ["doll", "娃娃"], ["mop", "拖把"], ["map", "地圖"], ["piano", "鋼琴"],
+  ["violin", "小提琴"],
+  
+  // --- Nature & Weather (自然/天氣) ---
+  ["weather", "天氣"], ["sun", "太陽"], ["cloud", "雲"], ["wind", "風"],
+  ["rain", "雨"], ["snow", "雪"], ["river", "河"], ["flower", "花"],
+  ["grass", "草"], ["tree", "樹"], ["sky", "天空"], ["season", "季節"],
+  ["spring", "春天"], ["summer", "夏天"], ["fall", "秋天"], ["winter", "冬天"],
+  ["sunny", "晴朗的"], ["cloudy", "多雲的"], ["windy", "刮風的"],
+  ["rainy", "下雨的"], ["snowy", "下雪的"], ["warm", "溫暖的"], ["cool", "涼爽的"],
+  
+  // --- Transport (交通) ---
+  ["bike", "腳踏車"], ["car", "汽車"], ["bus", "公車"], ["train", "火車"],
+  ["taxi", "計程車"], ["plane", "飛機"], ["boat", "船"], ["scooter", "機車"],
+  
+  // --- Food (食物) ---
+  ["breakfast", "早餐"], ["lunch", "午餐"], ["dinner", "晚餐"], ["cookie", "餅乾"],
+  ["ice cream", "冰淇淋"], ["candy", "糖果"], ["hamburger", "漢堡"], ["hot dog", "熱狗"],
+  ["pizza", "比薩"], ["bread", "麵包"], ["sandwich", "三明治"], ["cake", "蛋糕"],
+  ["rice", "飯"], ["noodles", "麵"], ["spaghetti", "義大利麵"], ["tea", "茶"],
+  ["coke", "可樂"], ["soda", "汽水"], ["water", "水"], ["juice", "果汁"],
+  ["milk", "牛奶"], ["egg", "蛋"], ["ham", "火腿"], ["salad", "沙拉"],
+  ["tomato", "番茄"], ["banana", "香蕉"], ["apple", "蘋果"], ["pear", "梨子"],
+  ["grape", "葡萄"], ["peach", "桃子"], ["chicken", "雞肉"], ["fish", "魚肉"],
+  
+  // --- Places (地點) ---
+  ["home", "家"], ["school", "學校"], ["park", "公園"], ["zoo", "動物園"],
+  ["store", "商店"], ["shop", "商店"], ["house", "房子"], ["garage", "車庫"],
+  ["living room", "客廳"], ["dining room", "飯廳"], ["kitchen", "廚房"], ["bedroom", "臥室"],
+  ["bathroom", "浴室/廁所"], ["yard", "庭院"], ["garden", "花園"], ["classroom", "教室"],
+  ["bookstore", "書局"], ["library", "圖書館"], ["supermarket", "超級市場"], ["theater", "電影院"],
+  ["restaurant", "餐廳"], ["Taiwan", "台灣"], ["Japan", "日本"], ["the UK", "英國"],
+  ["the USA", "美國"], ["Korea", "韓國"],
+  
+  // --- Time (時間) ---
+  ["o'clock", "點鐘"], ["now", "現在"], ["morning", "早上"], ["afternoon", "下午"],
+  ["evening", "傍晚"], ["night", "晚上"], ["today", "今天"], ["day", "日/天"],
+  ["month", "月份"], ["year", "年"], ["week", "週"],
+  ["Sunday", "星期日"], ["Monday", "星期一"], ["Tuesday", "星期二"], ["Wednesday", "星期三"],
+  ["Thursday", "星期四"], ["Friday", "星期五"], ["Saturday", "星期六"],
+  
+  // --- Verbs (動詞) ---
+  ["do", "做"], ["like", "喜歡"], ["love", "愛"], ["want", "想要"],
+  ["have", "擁有"], ["has", "擁有(單數)"], ["run", "跑"], ["walk", "走路"],
+  ["swim", "游泳"], ["jump", "跳"], ["ride", "騎"], ["dance", "跳舞"],
+  ["sing", "唱歌"], ["write", "寫"], ["read", "閱讀"], ["draw", "畫畫"],
+  ["color", "上色"], ["paint", "繪畫(顏料)"], ["speak", "說(語言)"], ["say", "說"],
+  ["eat", "吃"], ["drink", "喝"], ["look", "看(注視)"], ["watch", "看(觀看)"],
+  ["see", "看(看見)"], ["listen", "聽"], ["smile", "微笑"], ["laugh", "大笑"],
+  ["cry", "哭"], ["hold", "拿/握"], ["put", "放"], ["take", "拿取/帶"],
+  ["sit", "坐"], ["stand", "站"], ["go", "去"], ["come", "來"],
+  ["fly", "飛"], ["wash", "洗"], ["sleep", "睡覺"], ["feel", "感覺"],
+  ["open", "打開"], ["close", "關閉"], ["play", "玩"],
+  
+  // --- Adjectives (形容詞) ---
+  ["fine", "好的/健康的"], ["good", "好的"], ["bad", "壞的"], ["favorite", "最喜歡的"],
+  ["big", "大的"], ["small", "小的"], ["little", "小的"], ["old", "老的/舊的"],
+  ["young", "年輕的"], ["tall", "高的"], ["long", "長的"], ["short", "短的/矮的"],
+  ["thin", "瘦的/薄的"], ["fat", "胖的"], ["fast", "快的"], ["slow", "慢的"],
+  ["clean", "乾淨的"], ["dirty", "髒的"], ["hungry", "餓的"], ["thirsty", "渴的"],
+  ["happy", "開心的"], ["unhappy", "不開心的"], ["sad", "傷心的"], ["angry", "生氣的"],
+  ["sick", "生病的"], ["tired", "累的"], ["hot", "熱的"], ["cold", "冷的"],
+  ["beautiful", "美麗的"], ["new", "新的"],
+  
+  // --- Colors (顏色) ---
+  ["black", "黑色的"], ["white", "白色的"], ["gray", "灰色的"], ["brown", "棕色的"],
+  ["red", "紅色的"], ["orange", "橘色的"], ["yellow", "黃色的"], ["green", "綠色的"],
+  ["blue", "藍色的"], ["purple", "紫色的"], ["pink", "粉紅色的"],
+  
+  // --- Prepositions & Others (介係詞與其他) ---
+  ["at", "在...地點/時刻"], ["in", "在...裡面"], ["on", "在...上面"], ["under", "在...下面"],
+  ["by", "在...旁邊(by)"], ["next to", "在...旁邊(next to)"], ["beside", "在...旁邊(beside)"],
+  ["in front of", "在...前面"], ["behind", "在...後面"],
+  ["who", "誰"], ["what", "什麼"], ["when", "何時"], ["where", "哪裡"],
+  ["which", "哪一個"], ["why", "為什麼"], ["what time", "幾點"], ["how", "如何"],
+  ["how old", "幾歲"], ["how much", "多少(錢/量)"], ["how many", "多少(數量)"],
+  ["some", "一些"], ["much", "很多(不可數)"], ["many", "很多(可數)"],
+  ["English", "英文"], ["Chinese", "中文"], ["Math", "數學"], ["Art", "美術"],
+  ["Science", "自然科學"], ["Music", "音樂"]
+];
+
+// 輔助函式：從龐大的單字表中生成完整的遊戲物件
+const generateWordDatabase = () => {
+  return rawVocabularyList.map((item, index) => ({
+    id: index + 1,
+    word: item[0],
+    meaning: item[1],
+    // 預設例句，因為單字量太大，使用通用模板
+    example: `Question: What is the meaning of '${item[0]}'?`, 
+    // 音標先留空，UI會自動隱藏
+    phonetic: null 
+  }));
+};
+
+const wordDatabase = generateWordDatabase();
+
+// 怪獸進化列表 (Lv.1 - Lv.10)
+const monsterAvatars = [
+  '👾', // Lv 1: 小怪獸
+  '🐌', // Lv 2: 蝸牛
+  '🐍', // Lv 3: 蛇
+  '🕷️', // Lv 4: 蜘蛛
+  '🦇', // Lv 5: 蝙蝠
+  '🐺', // Lv 6: 狼
+  '👻', // Lv 7: 幽靈
+  '🦍', // Lv 8: 猩猩
+  '👹', // Lv 9: 惡鬼
+  '🐲'  // Lv 10: 惡龍 (Boss)
 ];
 
 export default function App() {
-  // 遊戲狀態: 'menu', 'playing', 'gameover', 'victory'
   const [gameState, setGameState] = useState('menu');
+  const [gameMode, setGameMode] = useState('battle'); 
   
-  // 玩家狀態
   const [playerHp, setPlayerHp] = useState(100);
   const [maxPlayerHp] = useState(100);
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
   
-  // 怪物狀態
   const [monsterHp, setMonsterHp] = useState(100);
   const [maxMonsterHp] = useState(100);
   const [currentMonsterLevel, setCurrentMonsterLevel] = useState(1);
   
-  // 題目狀態
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [shuffledQuestions, setShuffledQuestions] = useState([]);
+  const [currentFillQuestion, setCurrentFillQuestion] = useState(null);
+  
+  // 當前題目的選項 (動態生成)
+  const [currentOptions, setCurrentOptions] = useState([]);
+
   const [selectedOption, setSelectedOption] = useState(null);
-  const [feedback, setFeedback] = useState(null); // 'correct', 'wrong', null
+  const [feedback, setFeedback] = useState(null);
   const [showExplanation, setShowExplanation] = useState(false);
 
-  // 動畫狀態
+  const [isFlipped, setIsFlipped] = useState(false);
   const [isPlayerAttacking, setIsPlayerAttacking] = useState(false);
   const [isMonsterAttacking, setIsMonsterAttacking] = useState(false);
   const [shake, setShake] = useState(false);
 
   // 初始化遊戲
   useEffect(() => {
-    if (gameState === 'playing') {
+    if (gameState === 'playing_battle' || gameState === 'playing_fill') {
       const questions = [...wordDatabase].sort(() => Math.random() - 0.5);
       setShuffledQuestions(questions);
       setCurrentQuestionIndex(0);
@@ -55,67 +202,144 @@ export default function App() {
       setCurrentMonsterLevel(1);
       setFeedback(null);
       setShowExplanation(false);
+      
+      // 初始化第一題
+      if (questions.length > 0) {
+        if (gameState === 'playing_fill') {
+           setCurrentFillQuestion(generateFillQuestion(questions[0]));
+        } else {
+           setCurrentOptions(generateBattleOptions(questions[0], wordDatabase));
+        }
+      }
+
+    } else if (gameState === 'learning') {
+       setCurrentQuestionIndex(0);
+       setIsFlipped(false);
     }
   }, [gameState]);
 
+  // 發音功能
+  const speakWord = (text) => {
+    if ('speechSynthesis' in window) {
+      // 取消之前的發音，避免連點時聲音堆疊
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US'; // 設定為美式發音
+      utterance.rate = 0.8;     // 稍微放慢語速，讓學習者聽得更清楚
+      window.speechSynthesis.speak(utterance);
+    } else {
+      console.warn("Browser does not support text-to-speech");
+    }
+  };
+
+  // 動態生成 Battle 模式的選項
+  const generateBattleOptions = (correctWordData, allWords) => {
+    const correctMeaning = correctWordData.meaning;
+    // 從所有單字中隨機選 3 個錯誤答案
+    const wrongOptions = [];
+    const usedIndices = new Set([correctWordData.id]);
+    
+    while (wrongOptions.length < 3) {
+      const randomIndex = Math.floor(Math.random() * allWords.length);
+      const randomWord = allWords[randomIndex];
+      
+      // 避免重複或選到正確答案
+      if (!usedIndices.has(randomWord.id) && randomWord.meaning !== correctMeaning) {
+        wrongOptions.push(randomWord.meaning);
+        usedIndices.add(randomWord.id);
+      }
+    }
+    
+    // 混合正確答案並打亂
+    return [...wrongOptions, correctMeaning].sort(() => Math.random() - 0.5);
+  };
+
+  // 生成填空題
+  const generateFillQuestion = (wordData) => {
+    const word = wordData.word;
+    // 找出所有字母的索引 (忽略空格或特殊符號)
+    const indices = word.split('').map((c, i) => i).filter(i => /[a-zA-Z]/.test(word[i]));
+    
+    // 如果單字太短或沒有字母，直接顯示原字 (防呆)
+    if (indices.length === 0) return { ...wordData, maskedWord: word, targetChar: '', fillOptions: [] };
+
+    const targetIndex = indices[Math.floor(Math.random() * indices.length)];
+    const targetChar = word[targetIndex].toLowerCase(); 
+    
+    const maskedWord = word.substring(0, targetIndex) + '_' + word.substring(targetIndex + 1);
+    
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz';
+    let options = [targetChar];
+    while(options.length < 4) {
+      const char = alphabet[Math.floor(Math.random() * alphabet.length)];
+      if (!options.includes(char)) options.push(char);
+    }
+    
+    return {
+      ...wordData,
+      maskedWord,
+      targetChar,
+      fillOptions: options.sort(() => Math.random() - 0.5)
+    };
+  };
+
   // 處理回答
   const handleAnswer = (option) => {
-    if (feedback !== null) return; // 防止重複點擊
+    if (feedback !== null) return;
 
     setSelectedOption(option);
+    
+    let isCorrect = false;
     const currentQ = shuffledQuestions[currentQuestionIndex];
-    const isCorrect = option === currentQ.meaning;
+    
+    if (gameState === 'playing_battle') {
+      isCorrect = option === currentQ.meaning;
+    } else if (gameState === 'playing_fill') {
+      isCorrect = option === currentFillQuestion.targetChar;
+    }
 
     if (isCorrect) {
-      // 答對邏輯
       setFeedback('correct');
       setCombo(prev => prev + 1);
       setScore(prev => prev + (100 + (combo * 10)));
       
-      // 攻擊怪物
       setIsPlayerAttacking(true);
       setTimeout(() => setIsPlayerAttacking(false), 500);
       
       const damage = 20 + (combo * 2);
       setMonsterHp(prev => Math.max(0, prev - damage));
 
-      // 延遲進入下一題
       setTimeout(() => {
         if (monsterHp - damage <= 0) {
           handleMonsterDefeated();
         } else {
           nextQuestion();
         }
-      }, 1500);
+      }, 1200);
 
     } else {
-      // 答錯邏輯
       setFeedback('wrong');
       setCombo(0);
       setShake(true);
       setTimeout(() => setShake(false), 500);
 
-      // 怪物攻擊
       setIsMonsterAttacking(true);
       setTimeout(() => setIsMonsterAttacking(false), 500);
       
       const damage = 25;
       setPlayerHp(prev => Math.max(0, prev - damage));
       
-      // 顯示解析
       setShowExplanation(true);
     }
   };
 
-  // 處理怪物被擊敗
   const handleMonsterDefeated = () => {
-    // 怪物升級或勝利
-    if (currentMonsterLevel >= 3) {
+    if (currentMonsterLevel >= monsterAvatars.length) { // 擊敗所有怪獸 (Lv 10)
       setGameState('victory');
     } else {
       setCurrentMonsterLevel(prev => prev + 1);
-      setMonsterHp(maxMonsterHp + (currentMonsterLevel * 50)); // 怪物變強
-      setPlayerHp(prev => Math.min(maxPlayerHp, prev + 30)); // 玩家回血
+      setMonsterHp(maxMonsterHp + (currentMonsterLevel * 50));
+      setPlayerHp(prev => Math.min(maxPlayerHp, prev + 30));
       nextQuestion();
     }
   };
@@ -125,23 +349,41 @@ export default function App() {
     setSelectedOption(null);
     setShowExplanation(false);
     
-    // 如果還有題目，繼續；否則重新洗牌或結束
+    let nextIndex = currentQuestionIndex;
+    let nextQuestions = shuffledQuestions;
+
     if (currentQuestionIndex < shuffledQuestions.length - 1) {
+      nextIndex = currentQuestionIndex + 1;
       setCurrentQuestionIndex(prev => prev + 1);
     } else {
-      // 題庫循環
-      const questions = [...wordDatabase].sort(() => Math.random() - 0.5);
-      setShuffledQuestions(questions);
+      nextQuestions = [...wordDatabase].sort(() => Math.random() - 0.5);
+      setShuffledQuestions(nextQuestions);
       setCurrentQuestionIndex(0);
+      nextIndex = 0;
     }
     
-    // 檢查玩家是否死亡
+    // 準備下一題的資料
+    const nextQ = nextQuestions[nextIndex];
+    if (gameState === 'playing_fill') {
+      setCurrentFillQuestion(generateFillQuestion(nextQ));
+    } else {
+      setCurrentOptions(generateBattleOptions(nextQ, wordDatabase));
+    }
+    
     if (playerHp <= 0) {
       setGameState('gameover');
     }
   };
 
-  // 渲染血條
+  const handleLearningNav = (direction) => {
+    setIsFlipped(false);
+    if (direction === 'next') {
+        setCurrentQuestionIndex(prev => (prev + 1) % wordDatabase.length);
+    } else {
+        setCurrentQuestionIndex(prev => (prev - 1 + wordDatabase.length) % wordDatabase.length);
+    }
+  };
+
   const HealthBar = ({ current, max, color, label }) => (
     <div className="w-full">
       <div className="flex justify-between text-xs font-bold mb-1 text-slate-600">
@@ -151,13 +393,12 @@ export default function App() {
       <div className="h-4 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
         <div 
           className={`h-full transition-all duration-500 ease-out ${color}`}
-          style={{ width: `${(current / max) * 100}%` }}
+          style={{ width: `${(Math.max(0, current) / max) * 100}%` }}
         ></div>
       </div>
     </div>
   );
 
-  // 主選單
   if (gameState === 'menu') {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans text-slate-800">
@@ -165,22 +406,114 @@ export default function App() {
           <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Sword className="w-10 h-10 text-indigo-600" />
           </div>
-          <h1 className="text-3xl font-bold text-slate-800 mb-2">英語單字冒險</h1>
-          <p className="text-slate-500 mb-8">擊敗怪物，成為單字大師！</p>
+          <h1 className="text-3xl font-bold text-slate-800 mb-2">英語單字大冒險</h1>
+          <p className="text-slate-500 mb-2">收錄超過 300 個基礎單字！</p>
+          <div className="text-xs text-slate-400 mb-8 bg-slate-100 py-1 px-3 rounded-full inline-block">
+             包含: 數字, 人物, 動物, 食物, 地點...
+          </div>
           
-          <button 
-            onClick={() => setGameState('playing')}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 shadow-lg flex items-center justify-center gap-2"
-          >
-            <Sword className="w-5 h-5" />
-            開始冒險
-          </button>
+          <div className="space-y-4">
+            <button 
+              onClick={() => { setGameState('playing_battle'); setGameMode('battle'); }}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 shadow-md flex items-center justify-center gap-3"
+            >
+              <Sword className="w-5 h-5" />
+              單字對決 (Battle)
+            </button>
+            
+            <button 
+              onClick={() => { setGameState('playing_fill'); setGameMode('fill'); }}
+              className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 shadow-md flex items-center justify-center gap-3"
+            >
+              <Puzzle className="w-5 h-5" />
+              符文填空 (Spelling)
+            </button>
+            
+            <button 
+              onClick={() => setGameState('learning')}
+              className="w-full bg-teal-500 hover:bg-teal-600 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 shadow-md flex items-center justify-center gap-3"
+            >
+              <BookOpen className="w-5 h-5" />
+              記憶殿堂 (Learning)
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
-  // 遊戲結束/勝利畫面
+  // 學習模式
+  if (gameState === 'learning') {
+    const currentWord = wordDatabase[currentQuestionIndex];
+    return (
+        <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 font-sans">
+             <header className="absolute top-4 left-4 right-4 flex justify-between items-center">
+                <button onClick={() => setGameState('menu')} className="p-2 bg-white rounded-full shadow-sm text-slate-500 hover:bg-slate-50">
+                    <ArrowLeft className="w-6 h-6" />
+                </button>
+                <h2 className="font-bold text-slate-700 text-lg flex items-center gap-2">
+                    <BookOpen className="w-5 h-5" /> 記憶殿堂
+                </h2>
+                <div className="w-10"></div>
+            </header>
+
+            <div className="perspective-1000 w-full max-w-sm h-96 cursor-pointer group" onClick={() => setIsFlipped(!isFlipped)}>
+                <div className={`relative w-full h-full transition-all duration-500 transform-style-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
+                    
+                    {/* Front */}
+                    <div className="absolute w-full h-full backface-hidden bg-white rounded-2xl shadow-xl flex flex-col items-center justify-center border-b-4 border-indigo-200 p-8">
+                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-widest mb-4">Word Card</span>
+                        <h2 className="text-4xl font-black text-slate-800 mb-4 text-center break-words w-full">{currentWord.word}</h2>
+                        <button 
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             speakWord(currentWord.word);
+                           }}
+                           className="bg-indigo-100 hover:bg-indigo-200 p-3 rounded-full text-indigo-600 transition-colors mb-4"
+                        >
+                            <Volume2 className="w-6 h-6" />
+                        </button>
+                        <p className="mt-4 text-slate-400 text-sm flex items-center gap-1">
+                            <RotateCw className="w-3 h-3" /> 點擊翻轉查看意思
+                        </p>
+                    </div>
+
+                    {/* Back */}
+                    <div className="absolute w-full h-full backface-hidden bg-indigo-600 rounded-2xl shadow-xl flex flex-col items-center justify-center rotate-y-180 p-8 text-white border-b-4 border-indigo-800">
+                        <h3 className="text-3xl font-bold mb-4 text-center">{currentWord.meaning}</h3>
+                        <div className="w-full h-px bg-indigo-500 mb-4"></div>
+                        <div className="text-left w-full bg-indigo-700/50 p-4 rounded-lg">
+                            <p className="text-indigo-200 text-xs font-bold uppercase mb-2">Practice</p>
+                            <p className="italic text-lg leading-relaxed">{currentWord.example}</p>
+                        </div>
+                         <p className="mt-8 text-indigo-300 text-sm flex items-center gap-1">
+                            <RotateCw className="w-3 h-3" /> 點擊翻轉回單字
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex items-center gap-6 mt-8">
+                <button onClick={(e) => {e.stopPropagation(); handleLearningNav('prev')}} className="p-4 bg-white rounded-full shadow-lg text-slate-700 hover:bg-indigo-50 transition-colors">
+                    <ArrowLeft className="w-6 h-6" />
+                </button>
+                 <span className="font-bold text-slate-400">
+                    {currentQuestionIndex + 1} / {wordDatabase.length}
+                </span>
+                <button onClick={(e) => {e.stopPropagation(); handleLearningNav('next')}} className="p-4 bg-white rounded-full shadow-lg text-slate-700 hover:bg-indigo-50 transition-colors">
+                    <ArrowRight className="w-6 h-6" />
+                </button>
+            </div>
+             <style jsx>{`
+                .perspective-1000 { perspective: 1000px; }
+                .transform-style-3d { transform-style: preserve-3d; }
+                .backface-hidden { backface-visibility: hidden; }
+                .rotate-y-180 { transform: rotateY(180deg); }
+            `}</style>
+        </div>
+    )
+  }
+
   if (gameState === 'gameover' || gameState === 'victory') {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans">
@@ -193,7 +526,7 @@ export default function App() {
             )}
           </div>
           <h2 className="text-2xl font-bold mb-2">
-            {gameState === 'victory' ? '冒險成功！' : '冒險失敗...'}
+            {gameState === 'victory' ? '傳說達成！' : '再接再厲！'}
           </h2>
           <p className="text-slate-500 mb-6">
             最終分數: <span className="font-bold text-indigo-600 text-xl">{score}</span>
@@ -209,9 +542,8 @@ export default function App() {
     );
   }
 
-  // 遊戲進行中
   const currentQ = shuffledQuestions[currentQuestionIndex];
-  if (!currentQ) return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
+  if (!currentQ) return <div className="min-h-screen flex items-center justify-center">Loading Data...</div>;
 
   return (
     <div className={`min-h-screen bg-slate-50 flex flex-col p-4 font-sans overflow-hidden ${shake ? 'animate-shake' : ''}`}>
@@ -235,13 +567,14 @@ export default function App() {
         
         {/* 戰場視覺 */}
         <div className="bg-gradient-to-b from-indigo-50 to-white rounded-2xl p-6 shadow-md border border-indigo-100 relative min-h-[200px] flex items-end justify-between">
-            {/* 怪物 */}
+            {/* 怪物 (隨等級變化) */}
             <div className={`flex flex-col items-center transition-transform duration-200 ${isMonsterAttacking ? '-translate-x-10 scale-110' : ''} ${feedback === 'correct' ? 'opacity-50 scale-90 filter grayscale' : ''}`}>
                 <div className="text-6xl mb-2 transition-all transform duration-300">
-                    {currentMonsterLevel === 1 ? '👾' : currentMonsterLevel === 2 ? '👹' : '🐲'}
+                    {/* 動態渲染怪獸：從陣列中取出對應等級的怪獸 */}
+                    {monsterAvatars[(currentMonsterLevel - 1) % monsterAvatars.length]}
                 </div>
                 <div className="w-24">
-                   <HealthBar current={monsterHp} max={maxMonsterHp} color="bg-red-500" label={`Lv.${currentMonsterLevel} Monster`} /> 
+                   <HealthBar current={monsterHp} max={maxMonsterHp} color="bg-red-500" label={`Lv.${currentMonsterLevel}`} /> 
                 </div>
             </div>
 
@@ -253,7 +586,7 @@ export default function App() {
                 </div>
             </div>
 
-            {/* 攻擊特效 */}
+            {/* 特效 */}
             {isPlayerAttacking && <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-4xl animate-ping">💥</div>}
             {isMonsterAttacking && <div className="absolute bottom-10 right-1/3 text-4xl animate-bounce">🔥</div>}
         </div>
@@ -262,32 +595,73 @@ export default function App() {
         <div className="bg-white rounded-2xl shadow-lg border-b-4 border-indigo-100 p-6 text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
           
-          <h2 className="text-4xl font-black text-slate-800 mb-2">{currentQ.word}</h2>
-          <div className="flex items-center justify-center gap-2 text-slate-500 mb-6 bg-slate-50 inline-block py-1 px-3 rounded-full mx-auto">
-            <Volume2 className="w-4 h-4" />
-            <span className="font-mono">{currentQ.phonetic}</span>
-          </div>
+          {gameState === 'playing_battle' ? (
+              <>
+                <h2 className="text-4xl font-black text-slate-800 mb-6 break-words">{currentQ.word}</h2>
+              </>
+          ) : (
+              // Fill Mode
+              <div className="mb-6">
+                <div className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wide">Missing Rune</div>
+                <h2 className="text-4xl font-black text-slate-800 tracking-widest font-mono break-words mb-2">
+                    {currentFillQuestion ? currentFillQuestion.maskedWord : ''}
+                </h2>
+                
+                {/* 發音按鈕 (Fill Mode Only) */}
+                <button
+                   onClick={() => speakWord(currentQ.word)}
+                   className="mx-auto mb-4 flex items-center gap-2 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-4 py-2 rounded-full transition-colors"
+                >
+                    <Volume2 className="w-5 h-5" />
+                    <span className="text-sm font-bold">聽發音 (Listen)</span>
+                </button>
+
+                <p className="text-slate-500 text-sm mt-2 font-bold">{currentQ.meaning}</p>
+              </div>
+          )}
 
           {/* 選項區域 */}
           {!showExplanation ? (
-            <div className="grid grid-cols-1 gap-3">
-              {currentQ.options.map((option, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => handleAnswer(option)}
-                  disabled={feedback !== null}
-                  className={`
-                    p-4 rounded-xl font-bold text-lg transition-all transform active:scale-95
-                    ${selectedOption === option 
-                      ? (feedback === 'correct' ? 'bg-green-500 text-white shadow-green-200' : 'bg-red-500 text-white shadow-red-200')
-                      : 'bg-slate-50 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200'
-                    }
-                    ${feedback !== null && option === currentQ.meaning && feedback === 'wrong' ? 'ring-2 ring-green-500 bg-green-50' : ''}
-                  `}
-                >
-                  {option}
-                </button>
-              ))}
+            <div className={`grid ${gameState === 'playing_fill' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1'} gap-3`}>
+              {gameState === 'playing_battle' ? (
+                  // Battle Mode Options
+                  currentOptions.map((option, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleAnswer(option)}
+                      disabled={feedback !== null}
+                      className={`
+                        p-4 rounded-xl font-bold text-lg transition-all transform active:scale-95
+                        ${selectedOption === option 
+                          ? (feedback === 'correct' ? 'bg-green-500 text-white shadow-green-200' : 'bg-red-500 text-white shadow-red-200')
+                          : 'bg-slate-50 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600 border border-slate-200'
+                        }
+                        ${feedback !== null && option === currentQ.meaning && feedback === 'wrong' ? 'ring-2 ring-green-500 bg-green-50' : ''}
+                      `}
+                    >
+                      {option}
+                    </button>
+                  ))
+              ) : (
+                  // Fill Mode Options
+                  currentFillQuestion && currentFillQuestion.fillOptions.map((option, idx) => (
+                    <button
+                        key={idx}
+                        onClick={() => handleAnswer(option)}
+                        disabled={feedback !== null}
+                        className={`
+                            p-4 rounded-xl font-bold text-2xl font-mono transition-all transform active:scale-95
+                            ${selectedOption === option
+                            ? (feedback === 'correct' ? 'bg-green-500 text-white' : 'bg-red-500 text-white')
+                            : 'bg-slate-100 text-slate-800 hover:bg-orange-100 hover:text-orange-600 border-2 border-slate-200'
+                            }
+                            ${feedback !== null && option === currentFillQuestion.targetChar && feedback === 'wrong' ? 'ring-4 ring-green-400 border-green-400' : ''}
+                        `}
+                    >
+                        {option}
+                    </button>
+                  ))
+              )}
             </div>
           ) : (
             <div className="bg-red-50 rounded-xl p-5 border border-red-100 animate-fadeIn">
@@ -295,13 +669,15 @@ export default function App() {
                 <AlertCircle className="w-5 h-5" />
                 <span>Oops! 正確答案是：</span>
               </div>
-              <p className="text-xl font-bold text-slate-800 mb-4">{currentQ.meaning}</p>
+              <p className="text-xl font-bold text-slate-800 mb-4">
+                  {gameState === 'playing_battle' ? currentQ.meaning : (
+                      <>
+                        <span className="text-red-500">{currentFillQuestion.targetChar}</span> 
+                        <span className="text-slate-400 ml-2">({currentQ.word})</span>
+                      </>
+                  )}
+              </p>
               
-              <div className="bg-white p-4 rounded-lg border border-red-100 text-left">
-                <p className="text-xs font-bold text-slate-400 uppercase mb-1">Example</p>
-                <p className="text-slate-700 italic">"{currentQ.example}"</p>
-              </div>
-
               <button 
                 onClick={() => {
                    if (playerHp <= 0) {
@@ -317,14 +693,14 @@ export default function App() {
             </div>
           )}
           
-          {/* 答對時的例句顯示 (加強記憶) */}
+          {/* 答對時的例句顯示 */}
           {feedback === 'correct' && (
              <div className="mt-4 bg-green-50 p-4 rounded-lg border border-green-100 text-left animate-fadeIn">
                 <div className="flex items-center gap-2 mb-2">
                     <BookOpen className="w-4 h-4 text-green-600" />
-                    <span className="text-xs font-bold text-green-600 uppercase">Memory Boost</span>
+                    <span className="text-xs font-bold text-green-600 uppercase">Correct!</span>
                 </div>
-                <p className="text-slate-700 italic">"{currentQ.example}"</p>
+                <p className="text-slate-700 italic">"{currentQ.word}" means {currentQ.meaning}</p>
              </div>
           )}
         </div>
@@ -350,10 +726,3 @@ export default function App() {
     </div>
   );
 }
-
-// Helper icon for the explanation state
-const AlertCircle = ({ className }) => (
-  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-  </svg>
-);
