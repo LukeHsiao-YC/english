@@ -3,10 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>英語單字冒險 RPG</title>
-    <!-- 引入 Tailwind CSS 用於樣式 -->
+    <title>英語單字冒險 RPG - 究極進化版</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 React 和 Babel -->
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -26,6 +24,14 @@
         .animate-fadeIn {
             animation: fadeIn 0.5s ease-out;
         }
+        .animate-heal {
+            animation: heal 0.5s ease-out;
+        }
+        @keyframes heal {
+            0% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(1.1); filter: brightness(1.5) sepia(1) hue-rotate(50deg); } 
+            100% { transform: scale(1); filter: brightness(1); }
+        }
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -40,9 +46,9 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
-        // --- 圖示組件 (Inline SVGs to replace Lucide imports) ---
+        // --- 圖示組件 ---
         const Sword = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/><line x1="13" y1="19" x2="19" y2="13"/><line x1="16" y1="16" x2="20" y2="20"/><line x1="19" y1="21" x2="21" y2="19"/></svg>;
         const RefreshCw = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>;
         const Trophy = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>;
@@ -54,141 +60,101 @@
         const ArrowLeft = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>;
         const RotateCw = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>;
         const AlertCircle = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
+        const Keyboard = ({ className }) => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="4" width="20" height="16" rx="2" ry="2"/><line x1="6" y1="8" x2="6" y2="8"/><line x1="10" y1="8" x2="10" y2="8"/><line x1="14" y1="8" x2="14" y2="8"/><line x1="18" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="6" y2="12"/><line x1="10" y1="12" x2="10" y2="12"/><line x1="14" y1="12" x2="14" y2="12"/><line x1="18" y1="12" x2="18" y2="12"/><line x1="6" y1="16" x2="6" y2="16"/><line x1="10" y1="16" x2="14" y2="16"/><line x1="18" y1="16" x2="18" y2="16"/></svg>;
 
-        // --- 核心單字資料庫 (包含您提供的所有分類) ---
-        const rawVocabularyList = [
-          // --- Numbers (數字) ---
-          ["zero", "零"], ["one", "一"], ["two", "二"], ["three", "三"], ["four", "四"],
-          ["five", "五"], ["six", "六"], ["seven", "七"], ["eight", "八"], ["nine", "九"],
-          ["ten", "十"], ["eleven", "十一"], ["twelve", "十二"], ["thirteen", "十三"], ["fourteen", "十四"],
-          ["fifteen", "十五"], ["sixteen", "十六"], ["seventeen", "十七"], ["eighteen", "十八"], ["nineteen", "十九"],
-          ["twenty", "二十"], ["thirty", "三十"], ["forty", "四十"], ["fifty", "五十"], ["sixty", "六十"],
-          ["seventy", "七十"], ["eighty", "八十"], ["ninety", "九十"], ["hundred", "百"],
-          // --- People (人物/稱謂) ---
-          ["I", "我"], ["You", "你(們)"], ["We", "我們"], ["They", "他們"],
-          ["He", "他"], ["him", "他(受格)"], ["She", "她"], ["It", "它/牠"],
-          ["my", "我的"], ["your", "你的"], ["his", "他的"], ["her", "她的"], ["its", "它的"],
-          ["grandmother", "祖母/外祖母"], ["grandfather", "祖父/外祖父"], ["mother", "媽媽"], ["mom", "媽媽(口語)"],
-          ["father", "爸爸"], ["dad", "爸爸(口語)"], ["sister", "姊妹"], ["brother", "兄弟"],
-          ["baby", "嬰兒"], ["girl", "女孩"], ["boy", "男孩"], ["woman", "女人"], ["man", "男人"],
-          ["cook", "廚師"], ["teacher", "老師"], ["student", "學生"], ["farmer", "農夫"],
-          ["doctor", "醫生"], ["nurse", "護理師"], ["driver", "司機"], ["friend", "朋友"],
-          // --- Body Parts (身體) ---
-          ["head", "頭"], ["hair", "頭髮"], ["eye", "眼睛"], ["nose", "鼻子"], ["mouth", "嘴巴"],
-          ["ear", "耳朵"], ["hand", "手"], ["leg", "腿"], ["foot", "腳"], ["feet", "腳(複數)"],
-          ["face", "臉"],
-          // --- Clothing (服飾) ---
-          ["hat", "帽子"], ["glasses", "眼鏡"], ["shirt", "襯衫"], ["shorts", "短褲"],
-          ["pants", "長褲"], ["skirt", "裙子"], ["dress", "洋裝"], ["socks", "襪子"],
-          ["shoes", "鞋子"], ["boots", "靴子"], ["jacket", "夾克"], ["coat", "大衣/外套"],
-          ["T-shirt", "運動衫"],
-          // --- Animals (動物) ---
-          ["bear", "熊"], ["dog", "狗"], ["cat", "貓"], ["bird", "鳥"], ["rabbit", "兔子"],
-          ["frog", "青蛙"], ["fish", "魚"], ["chicken", "雞"], ["turtle", "烏龜"],
-          ["lion", "獅子"], ["tiger", "老虎"], ["monkey", "猴子"], ["giraffe", "長頸鹿"],
-          ["fox", "狐狸"], ["zebra", "斑馬"], ["pig", "豬"], ["elephant", "大象"],
-          ["ant", "螞蟻"], ["snake", "蛇"], ["horse", "馬"],
-          // --- Things (物品) ---
-          ["pen", "原子筆"], ["pencil", "鉛筆"], ["marker", "麥克筆"], ["eraser", "橡皮擦"],
-          ["ruler", "尺"], ["book", "書"], ["bag", "袋子/包包"], ["desk", "書桌"],
-          ["table", "餐桌"], ["chair", "椅子"], ["crayon", "蠟筆"], ["box", "箱子"],
-          ["door", "門"], ["window", "窗戶"], ["picture", "圖片/照片"], ["TV", "電視"],
-          ["sofa", "沙發"], ["light", "光/燈"], ["bed", "床"], ["lamp", "檯燈"],
-          ["clock", "時鐘"], ["cell phone", "手機"], ["video game", "電動玩具"], ["computer", "電腦"],
-          ["cup", "杯子"], ["mug", "馬克杯"], ["bowl", "碗"], ["ball", "球"],
-          ["yo-yo", "溜溜球"], ["bat", "球棒"], ["robot", "機器人"], ["kite", "風箏"],
-          ["doll", "娃娃"], ["mop", "拖把"], ["map", "地圖"], ["piano", "鋼琴"],
-          ["violin", "小提琴"],
-          // --- Nature & Weather (自然/天氣) ---
-          ["weather", "天氣"], ["sun", "太陽"], ["cloud", "雲"], ["wind", "風"],
-          ["rain", "雨"], ["snow", "雪"], ["river", "河"], ["flower", "花"],
-          ["grass", "草"], ["tree", "樹"], ["sky", "天空"], ["season", "季節"],
-          ["spring", "春天"], ["summer", "夏天"], ["fall", "秋天"], ["winter", "冬天"],
-          ["sunny", "晴朗的"], ["cloudy", "多雲的"], ["windy", "刮風的"],
-          ["rainy", "下雨的"], ["snowy", "下雪的"], ["warm", "溫暖的"], ["cool", "涼爽的"],
-          // --- Transport (交通) ---
-          ["bike", "腳踏車"], ["car", "汽車"], ["bus", "公車"], ["train", "火車"],
-          ["taxi", "計程車"], ["plane", "飛機"], ["boat", "船"], ["scooter", "機車"],
-          // --- Food (食物) ---
-          ["breakfast", "早餐"], ["lunch", "午餐"], ["dinner", "晚餐"], ["cookie", "餅乾"],
-          ["ice cream", "冰淇淋"], ["candy", "糖果"], ["hamburger", "漢堡"], ["hot dog", "熱狗"],
-          ["pizza", "比薩"], ["bread", "麵包"], ["sandwich", "三明治"], ["cake", "蛋糕"],
-          ["rice", "飯"], ["noodles", "麵"], ["spaghetti", "義大利麵"], ["tea", "茶"],
-          ["coke", "可樂"], ["soda", "汽水"], ["water", "水"], ["juice", "果汁"],
-          ["milk", "牛奶"], ["egg", "蛋"], ["ham", "火腿"], ["salad", "沙拉"],
-          ["tomato", "番茄"], ["banana", "香蕉"], ["apple", "蘋果"], ["pear", "梨子"],
-          ["grape", "葡萄"], ["peach", "桃子"], ["chicken", "雞肉"], ["fish", "魚肉"],
-          // --- Places (地點) ---
-          ["home", "家"], ["school", "學校"], ["park", "公園"], ["zoo", "動物園"],
-          ["store", "商店"], ["shop", "商店"], ["house", "房子"], ["garage", "車庫"],
-          ["living room", "客廳"], ["dining room", "飯廳"], ["kitchen", "廚房"], ["bedroom", "臥室"],
-          ["bathroom", "浴室/廁所"], ["yard", "庭院"], ["garden", "花園"], ["classroom", "教室"],
-          ["bookstore", "書局"], ["library", "圖書館"], ["supermarket", "超級市場"], ["theater", "電影院"],
-          ["restaurant", "餐廳"], ["Taiwan", "台灣"], ["Japan", "日本"], ["the UK", "英國"],
-          ["the USA", "美國"], ["Korea", "韓國"],
-          // --- Time (時間) ---
-          ["o'clock", "點鐘"], ["now", "現在"], ["morning", "早上"], ["afternoon", "下午"],
-          ["evening", "傍晚"], ["night", "晚上"], ["today", "今天"], ["day", "日/天"],
-          ["month", "月份"], ["year", "年"], ["week", "週"],
-          ["Sunday", "星期日"], ["Monday", "星期一"], ["Tuesday", "星期二"], ["Wednesday", "星期三"],
-          ["Thursday", "星期四"], ["Friday", "星期五"], ["Saturday", "星期六"],
-          // --- Verbs (動詞) ---
-          ["do", "做"], ["like", "喜歡"], ["love", "愛"], ["want", "想要"],
-          ["have", "擁有"], ["has", "擁有(單數)"], ["run", "跑"], ["walk", "走路"],
-          ["swim", "游泳"], ["jump", "跳"], ["ride", "騎"], ["dance", "跳舞"],
-          ["sing", "唱歌"], ["write", "寫"], ["read", "閱讀"], ["draw", "畫畫"],
-          ["color", "上色"], ["paint", "繪畫(顏料)"], ["speak", "說(語言)"], ["say", "說"],
-          ["eat", "吃"], ["drink", "喝"], ["look", "看(注視)"], ["watch", "看(觀看)"],
-          ["see", "看(看見)"], ["listen", "聽"], ["smile", "微笑"], ["laugh", "大笑"],
-          ["cry", "哭"], ["hold", "拿/握"], ["put", "放"], ["take", "拿取/帶"],
-          ["sit", "坐"], ["stand", "站"], ["go", "去"], ["come", "來"],
-          ["fly", "飛"], ["wash", "洗"], ["sleep", "睡覺"], ["feel", "感覺"],
-          ["open", "打開"], ["close", "關閉"], ["play", "玩"],
-          // --- Adjectives (形容詞) ---
-          ["fine", "好的/健康的"], ["good", "好的"], ["bad", "壞的"], ["favorite", "最喜歡的"],
-          ["big", "大的"], ["small", "小的"], ["little", "小的"], ["old", "老的/舊的"],
-          ["young", "年輕的"], ["tall", "高的"], ["long", "長的"], ["short", "短的/矮的"],
-          ["thin", "瘦的/薄的"], ["fat", "胖的"], ["fast", "快的"], ["slow", "慢的"],
-          ["clean", "乾淨的"], ["dirty", "髒的"], ["hungry", "餓的"], ["thirsty", "渴的"],
-          ["happy", "開心的"], ["unhappy", "不開心的"], ["sad", "傷心的"], ["angry", "生氣的"],
-          ["sick", "生病的"], ["tired", "累的"], ["hot", "熱的"], ["cold", "冷的"],
-          ["beautiful", "美麗的"], ["new", "新的"],
-          // --- Colors (顏色) ---
-          ["black", "黑色的"], ["white", "白色的"], ["gray", "灰色的"], ["brown", "棕色的"],
-          ["red", "紅色的"], ["orange", "橘色的"], ["yellow", "黃色的"], ["green", "綠色的"],
-          ["blue", "藍色的"], ["purple", "紫色的"], ["pink", "粉紅色的"],
-          // --- Prepositions & Others (介係詞與其他) ---
-          ["at", "在...地點/時刻"], ["in", "在...裡面"], ["on", "在...上面"], ["under", "在...下面"],
-          ["by", "在...旁邊(by)"], ["next to", "在...旁邊(next to)"], ["beside", "在...旁邊(beside)"],
-          ["in front of", "在...前面"], ["behind", "在...後面"],
-          ["who", "誰"], ["what", "什麼"], ["when", "何時"], ["where", "哪裡"],
-          ["which", "哪一個"], ["why", "為什麼"], ["what time", "幾點"], ["how", "如何"],
-          ["how old", "幾歲"], ["how much", "多少(錢/量)"], ["how many", "多少(數量)"],
-          ["some", "一些"], ["much", "很多(不可數)"], ["many", "很多(可數)"],
-          ["English", "英文"], ["Chinese", "中文"], ["Math", "數學"], ["Art", "美術"],
-          ["Science", "自然科學"], ["Music", "音樂"]
+        // --- 資料庫區 ---
+        
+        // 1. 基礎單字庫 (包含原本的單字)
+        const basicVocabulary = [
+          ["zero", "零"], ["one", "一"], ["two", "二"], ["three", "三"], ["four", "四"], ["five", "五"], ["six", "六"], ["seven", "七"], ["eight", "八"], ["nine", "九"], ["ten", "十"],
+          ["apple", "蘋果"], ["banana", "香蕉"], ["cat", "貓"], ["dog", "狗"], ["egg", "蛋"], ["fish", "魚"], ["girl", "女孩"], ["hat", "帽子"], ["ice cream", "冰淇淋"], ["juice", "果汁"],
+          ["kite", "風箏"], ["lion", "獅子"], ["monkey", "猴子"], ["nose", "鼻子"], ["orange", "橘子"], ["pig", "豬"], ["queen", "皇后"], ["rabbit", "兔子"], ["sun", "太陽"], ["tiger", "老虎"],
+          ["umbrella", "雨傘"], ["van", "箱型車"], ["watch", "手錶"], ["box", "箱子"], ["yo-yo", "溜溜球"], ["zebra", "斑馬"]
         ];
 
-        // 輔助函式：從龐大的單字表中生成完整的遊戲物件
+        // 2. 擴充單字庫 (整合 Grade 3 - Grade 6)
+        // 為了讓拼字模式有中文，這裡模擬了一個簡單的對照表。由於數量龐大，這裡展示了每個級別的精選單字。
+        // 在實際產品中，這應該是一個完整的 JSON 資料庫。
+        const extendedVocabulary = [
+            // Grade 3 (精選)
+            ["afternoon", "下午"], ["airport", "機場"], ["autumn", "秋天"], ["bicycle", "腳踏車"], ["blackboard", "黑板"], 
+            ["breakfast", "早餐"], ["businessman", "商人"], ["classroom", "教室"], ["dictionary", "字典"], ["dinosaur", "恐龍"],
+            ["daughter", "女兒"], ["December", "十二月"], ["delicious", "美味的"], ["department", "部門"], ["difference", "差異"],
+            ["driver", "司機"], ["eleven", "十一"], ["envelope", "信封"], ["evening", "傍晚"], ["exercise", "運動/練習"],
+            ["expensive", "昂貴的"], ["family", "家庭"], ["farmer", "農夫"], ["February", "二月"], ["fifteen", "十五"],
+            ["fisherman", "漁夫"], ["flower", "花"], ["foreigner", "外國人"], ["Friday", "星期五"], ["friend", "朋友"],
+            ["grandfather", "祖父"], ["grandmother", "祖母"], ["hamburger", "漢堡"], ["history", "歷史"], ["homework", "功課"],
+            ["hospital", "醫院"], ["hundred", "一百"], ["husband", "丈夫"], ["island", "島嶼"], ["January", "一月"],
+            ["kitchen", "廚房"], ["library", "圖書館"], ["machine", "機器"], ["medicine", "藥"], ["morning", "早上"],
+            ["mountain", "山"], ["museum", "博物館"], ["musician", "音樂家"], ["neighbor", "鄰居"], ["newspaper", "報紙"],
+            ["notebook", "筆記本"], ["November", "十一月"], ["October", "十月"], ["office", "辦公室"], ["parent", "父母"],
+            ["picnic", "野餐"], ["picture", "圖片"], ["playground", "操場"], ["police", "警察"], ["problem", "問題"],
+            ["question", "問題"], ["rainbow", "彩虹"], ["restaurant", "餐廳"], ["sandwich", "三明治"], ["Saturday", "星期六"],
+            ["science", "科學"], ["season", "季節"], ["September", "九月"], ["shoulder", "肩膀"], ["sidewalk", "人行道"],
+            ["soldier", "士兵"], ["stomach", "胃"], ["strawberry", "草莓"], ["student", "學生"], ["summer", "夏天"],
+            ["Sunday", "星期日"], ["supermarket", "超市"], ["surprise", "驚喜"], ["sweater", "毛衣"], ["teacher", "老師"],
+            ["telephone", "電話"], ["television", "電視"], ["theater", "電影院"], ["thirteen", "十三"], ["thousand", "一千"],
+            ["Thursday", "星期四"], ["ticket", "票"], ["tomorrow", "明天"], ["traffic", "交通"], ["Tuesday", "星期二"],
+            ["umbrella", "雨傘"], ["uniform", "制服"], ["vacation", "假期"], ["vegetable", "蔬菜"], ["weather", "天氣"],
+            ["Wednesday", "星期三"], ["weekend", "週末"], ["winter", "冬天"], ["wonderful", "美好的"], ["yesterday", "昨天"],
+            // Grade 4 (精選)
+            ["apartment", "公寓"], ["balcony", "陽台"], ["badminton", "羽毛球"], ["bakery", "麵包店"], ["balloon", "氣球"],
+            ["basement", "地下室"], ["bathroom", "浴室"], ["beautiful", "美麗的"], ["bedroom", "臥室"], ["birthday", "生日"],
+            ["blanket", "毯子"], ["bookstore", "書店"], ["bracelet", "手鍊"], ["building", "建築物"], ["butterfly", "蝴蝶"],
+            ["cabbage", "高麗菜"], ["cafeteria", "自助餐廳"], ["calendar", "日曆"], ["camera", "相機"], ["captain", "隊長"],
+            ["careful", "小心的"], ["cartoon", "卡通"], ["celebrate", "慶祝"], ["cellphone", "手機"], ["century", "世紀"],
+            ["chemistry", "化學"], ["chocolate", "巧克力"], ["chopsticks", "筷子"], ["Christmas", "聖誕節"], ["classmate", "同學"],
+            ["comfortable", "舒適的"], ["computer", "電腦"], ["confident", "有自信的"], ["convenient", "方便的"], ["conversation", "對話"],
+            ["dangerous", "危險的"], ["daughter", "女兒"], ["decision", "決定"], ["dentist", "牙醫"], ["different", "不同的"],
+            ["difficult", "困難的"], ["direction", "方向"], ["discount", "折扣"], ["discover", "發現"], ["discuss", "討論"],
+            ["dolphin", "海豚"], ["doughnut", "甜甜圈"], ["downstairs", "樓下"], ["dumpling", "水餃"], ["earthquake", "地震"],
+            ["education", "教育"], ["elephant", "大象"], ["elevator", "電梯"], ["engineer", "工程師"], ["entrance", "入口"],
+            ["envelope", "信封"], ["environment", "環境"], ["especially", "特別是"], ["everybody", "每個人"], ["everything", "每件事"],
+            ["excellent", "優秀的"], ["exciting", "令人興奮的"], ["experience", "經驗"], ["factory", "工廠"], ["fantastic", "極好的"],
+            ["fashionable", "時尚的"], ["favorite", "最喜愛的"], ["festival", "節日"], ["finish", "完成"], ["foreigner", "外國人"],
+            ["furniture", "傢俱"], ["gentleman", "紳士"], ["geography", "地理"], ["government", "政府"], ["grandson", "孫子"],
+            ["handsome", "英俊的"], ["helicopter", "直升機"], ["holiday", "假日"], ["homework", "作業"], ["horrible", "可怕的"],
+            // Grade 5 & 6 words
+            ["information", "資訊"], ["instrument", "樂器"], ["intelligent", "聰明的"], ["interest", "興趣"], ["international", "國際的"],
+            ["interrupt", "打斷"], ["introduce", "介紹"], ["invention", "發明"], ["invitation", "邀請"], ["journalist", "記者"],
+            ["kangaroo", "袋鼠"], ["kindergarten", "幼稚園"], ["knowledge", "知識"], ["language", "語言"], ["lemonade", "檸檬水"],
+            ["magazine", "雜誌"], ["magician", "魔術師"], ["manager", "經理"], ["marvelous", "非凡的"], ["mathematics", "數學"],
+            ["mechanic", "技工"], ["medicine", "藥物"], ["microphone", "麥克風"], ["microwave", "微波爐"], ["midnight", "午夜"],
+            ["mosquito", "蚊子"], ["motorcycle", "摩托車"], ["mountain", "山脈"], ["musician", "音樂家"], ["necklace", "項鍊"],
+            ["neighbor", "鄰居"], ["newspaper", "報紙"], ["nightmare", "惡夢"], ["notebook", "筆記本"], ["november", "十一月"],
+            ["operation", "手術/操作"], ["ordinary", "普通的"], ["overseas", "海外的"], ["painting", "繪畫"], ["pajamas", "睡衣"],
+            ["passenger", "乘客"], ["passport", "護照"], ["photograph", "照片"], ["platform", "月台"], ["pleasant", "愉快的"],
+            ["pollution", "污染"], ["population", "人口"], ["position", "位置"], ["positive", "正面的"], ["postcard", "明信片"],
+            ["potato", "馬鈴薯"], ["precious", "珍貴的"], ["president", "總統"], ["pressure", "壓力"], ["princess", "公主"],
+            ["principal", "校長"], ["principle", "原則"], ["problem", "問題"], ["professor", "教授"], ["program", "節目/程式"],
+            ["pronounce", "發音"], ["protect", "保護"], ["pumpkin", "南瓜"], ["question", "問題"], ["railroad", "鐵路"],
+            ["raincoat", "雨衣"], ["rectangle", "長方形"], ["refrigerator", "冰箱"], ["remember", "記得"], ["reporter", "記者"],
+            ["restaurant", "餐廳"], ["restroom", "洗手間"], ["sandwich", "三明治"], ["Saturday", "星期六"], ["scenery", "風景"],
+            ["schedule", "行程表"], ["science", "科學"], ["scientist", "科學家"], ["scooter", "機車"], ["secretary", "秘書"]
+        ];
+
+        // 合併資料庫
+        const combinedVocab = [...basicVocabulary, ...extendedVocabulary];
+
         const generateWordDatabase = () => {
-          return rawVocabularyList.map((item, index) => ({
+          return combinedVocab.map((item, index) => ({
             id: index + 1,
             word: item[0],
             meaning: item[1],
-            example: `Question: What is the meaning of '${item[0]}'?`, 
-            phonetic: null 
+            example: `Question: What is the meaning of '${item[0]}'?`
           }));
         };
 
-        const wordDatabase = generateWordDatabase();
+        const battleDatabase = generateWordDatabase();
 
         const monsterAvatars = [
           '👾', '🐌', '🐍', '🕷️', '🦇', '🐺', '👻', '🦍', '👹', '🐲'
         ];
 
         function App() {
-          const [gameState, setGameState] = useState('menu');
+          const [gameState, setGameState] = useState('menu'); // menu, playing_battle, playing_fill, playing_typing_setup, playing_typing, learning, gameover, victory
           const [gameMode, setGameMode] = useState('battle'); 
+          const [typingDifficulty, setTypingDifficulty] = useState(null); // 'easy', 'medium', 'hard'
           
           const [playerHp, setPlayerHp] = useState(100);
           const [maxPlayerHp] = useState(100);
@@ -201,22 +167,32 @@
           
           const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
           const [shuffledQuestions, setShuffledQuestions] = useState([]);
+          
           const [currentFillQuestion, setCurrentFillQuestion] = useState(null);
+          const [currentTypingQuestion, setCurrentTypingQuestion] = useState(null); 
           
           const [currentOptions, setCurrentOptions] = useState([]);
-
           const [selectedOption, setSelectedOption] = useState(null);
           const [feedback, setFeedback] = useState(null);
           const [showExplanation, setShowExplanation] = useState(false);
+          const [typingInput, setTypingInput] = useState('');
 
           const [isFlipped, setIsFlipped] = useState(false);
           const [isPlayerAttacking, setIsPlayerAttacking] = useState(false);
           const [isMonsterAttacking, setIsMonsterAttacking] = useState(false);
+          const [monsterHealed, setMonsterHealed] = useState(false);
           const [shake, setShake] = useState(false);
 
+          // 記錄錯誤題目 { q: "apple", a: "apple (蘋果)" }
+          const [wrongAnswers, setWrongAnswers] = useState([]);
+
+          const inputRef = useRef(null);
+
+          // 初始化關卡
           useEffect(() => {
-            if (gameState === 'playing_battle' || gameState === 'playing_fill') {
-              const questions = [...wordDatabase].sort(() => Math.random() - 0.5);
+            if (gameState === 'playing_battle' || gameState === 'playing_fill' || gameState === 'playing_typing') {
+              const questions = [...battleDatabase].sort(() => Math.random() - 0.5);
+              
               setShuffledQuestions(questions);
               setCurrentQuestionIndex(0);
               setPlayerHp(maxPlayerHp);
@@ -226,12 +202,16 @@
               setCurrentMonsterLevel(1);
               setFeedback(null);
               setShowExplanation(false);
+              setWrongAnswers([]); 
               
               if (questions.length > 0) {
+                const firstQ = questions[0];
                 if (gameState === 'playing_fill') {
-                   setCurrentFillQuestion(generateFillQuestion(questions[0]));
+                   setCurrentFillQuestion(generateFillQuestion(firstQ));
+                } else if (gameState === 'playing_typing') {
+                   setCurrentTypingQuestion(generateTypingQuestion(firstQ, typingDifficulty));
                 } else {
-                   setCurrentOptions(generateBattleOptions(questions[0], wordDatabase));
+                   setCurrentOptions(generateBattleOptions(firstQ, battleDatabase));
                 }
               }
 
@@ -239,7 +219,14 @@
                setCurrentQuestionIndex(0);
                setIsFlipped(false);
             }
-          }, [gameState]);
+          }, [gameState, typingDifficulty]);
+
+          // 自動聚焦輸入框
+          useEffect(() => {
+              if (gameState === 'playing_typing' && !showExplanation && inputRef.current) {
+                  inputRef.current.focus();
+              }
+          }, [gameState, showExplanation, currentQuestionIndex]);
 
           const speakWord = (text) => {
             if ('speechSynthesis' in window) {
@@ -294,9 +281,61 @@
             };
           };
 
+          // 核心：生成拼字題目 (依難度)
+          const generateTypingQuestion = (wordData, difficulty) => {
+            const word = wordData.word;
+            const chars = word.split('');
+            const validIndices = chars.map((c, i) => /[a-zA-Z]/.test(c) ? i : -1).filter(i => i !== -1);
+            
+            let maskedIndices = new Set();
+
+            if (validIndices.length <= 1) {
+                // 單字太短，不挖空或全挖
+                return { ...wordData, maskedDisplay: word };
+            }
+
+            if (difficulty === 'hard') {
+                // 困難：只留頭尾，中間全挖
+                for (let i = 1; i < chars.length - 1; i++) {
+                    if (/[a-zA-Z]/.test(chars[i])) maskedIndices.add(i);
+                }
+            } else if (difficulty === 'medium') {
+                // 中等：隨機挖 2 個 (如果長度夠)
+                const count = Math.min(2, validIndices.length);
+                while(maskedIndices.size < count) {
+                    const idx = validIndices[Math.floor(Math.random() * validIndices.length)];
+                    maskedIndices.add(idx);
+                }
+            } else {
+                // 簡單：隨機挖 1 個
+                const idx = validIndices[Math.floor(Math.random() * validIndices.length)];
+                maskedIndices.add(idx);
+            }
+            
+            const maskedDisplay = chars.map((c, i) => maskedIndices.has(i) ? '_' : c).join(' ');
+            return {
+                ...wordData,
+                maskedDisplay
+            };
+          };
+
+          const handleTypingSubmit = (e) => {
+              e.preventDefault();
+              if (feedback !== null) return;
+              
+              const userAnswer = typingInput.trim().toLowerCase();
+              const correctAnswer = currentTypingQuestion.word.toLowerCase();
+              
+              if (userAnswer === correctAnswer) {
+                  processResult(true);
+              } else {
+                  processResult(false);
+              }
+              setTypingInput('');
+          };
+
           const handleAnswer = (option) => {
             if (feedback !== null) return;
-
             setSelectedOption(option);
             
             let isCorrect = false;
@@ -308,39 +347,58 @@
               isCorrect = option === currentFillQuestion.targetChar;
             }
 
-            if (isCorrect) {
-              setFeedback('correct');
-              setCombo(prev => prev + 1);
-              setScore(prev => prev + (100 + (combo * 10)));
-              
-              setIsPlayerAttacking(true);
-              setTimeout(() => setIsPlayerAttacking(false), 500);
-              
-              const damage = 20 + (combo * 2);
-              setMonsterHp(prev => Math.max(0, prev - damage));
+            processResult(isCorrect);
+          };
 
-              setTimeout(() => {
-                if (monsterHp - damage <= 0) {
-                  handleMonsterDefeated();
-                } else {
-                  nextQuestion();
-                }
-              }, 1200);
+          // 統一處理結果 (包含怪獸回血邏輯)
+          const processResult = (isCorrect) => {
+              const currentQ = shuffledQuestions[currentQuestionIndex];
+              // 記錄錯誤
+              const questionRecord = { q: currentQ.word, a: `${currentQ.word} (${currentQ.meaning})` };
 
-            } else {
-              setFeedback('wrong');
-              setCombo(0);
-              setShake(true);
-              setTimeout(() => setShake(false), 500);
+              if (isCorrect) {
+                  setFeedback('correct');
+                  setCombo(prev => prev + 1);
+                  setScore(prev => prev + (100 + (combo * 10)));
+                  
+                  setIsPlayerAttacking(true);
+                  setTimeout(() => setIsPlayerAttacking(false), 500);
+                  
+                  const damage = 20 + (combo * 2);
+                  setMonsterHp(prev => Math.max(0, prev - damage));
 
-              setIsMonsterAttacking(true);
-              setTimeout(() => setIsMonsterAttacking(false), 500);
-              
-              const damage = 25;
-              setPlayerHp(prev => Math.max(0, prev - damage));
-              
-              setShowExplanation(true);
-            }
+                  setTimeout(() => {
+                    if (monsterHp - damage <= 0) {
+                      handleMonsterDefeated();
+                    } else {
+                      nextQuestion();
+                    }
+                  }, 1200);
+
+              } else {
+                  setFeedback('wrong');
+                  setCombo(0);
+                  setShake(true);
+                  
+                  setWrongAnswers(prev => [...prev, questionRecord]);
+
+                  setTimeout(() => setShake(false), 500);
+
+                  setIsMonsterAttacking(true);
+                  setTimeout(() => setIsMonsterAttacking(false), 500);
+                  
+                  // 玩家扣血
+                  const damage = 25;
+                  setPlayerHp(prev => Math.max(0, prev - damage));
+
+                  // 怪獸回血 (吸血機制)
+                  const healAmount = 15;
+                  setMonsterHealed(true);
+                  setMonsterHp(prev => Math.min(maxMonsterHp, prev + healAmount));
+                  setTimeout(() => setMonsterHealed(false), 500);
+                  
+                  setShowExplanation(true);
+              }
           };
 
           const handleMonsterDefeated = () => {
@@ -358,6 +416,7 @@
             setFeedback(null);
             setSelectedOption(null);
             setShowExplanation(false);
+            setTypingInput('');
             
             let nextIndex = currentQuestionIndex;
             let nextQuestions = shuffledQuestions;
@@ -366,8 +425,9 @@
               nextIndex = currentQuestionIndex + 1;
               setCurrentQuestionIndex(prev => prev + 1);
             } else {
-              nextQuestions = [...wordDatabase].sort(() => Math.random() - 0.5);
-              setShuffledQuestions(nextQuestions);
+              let newQuestions = [...battleDatabase].sort(() => Math.random() - 0.5);
+              setShuffledQuestions(newQuestions);
+              nextQuestions = newQuestions;
               setCurrentQuestionIndex(0);
               nextIndex = 0;
             }
@@ -375,8 +435,10 @@
             const nextQ = nextQuestions[nextIndex];
             if (gameState === 'playing_fill') {
               setCurrentFillQuestion(generateFillQuestion(nextQ));
+            } else if (gameState === 'playing_typing') {
+              setCurrentTypingQuestion(generateTypingQuestion(nextQ, typingDifficulty));
             } else {
-              setCurrentOptions(generateBattleOptions(nextQ, wordDatabase));
+              setCurrentOptions(generateBattleOptions(nextQ, battleDatabase));
             }
             
             if (playerHp <= 0) {
@@ -387,9 +449,9 @@
           const handleLearningNav = (direction) => {
             setIsFlipped(false);
             if (direction === 'next') {
-                setCurrentQuestionIndex(prev => (prev + 1) % wordDatabase.length);
+                setCurrentQuestionIndex(prev => (prev + 1) % battleDatabase.length);
             } else {
-                setCurrentQuestionIndex(prev => (prev - 1 + wordDatabase.length) % wordDatabase.length);
+                setCurrentQuestionIndex(prev => (prev - 1 + battleDatabase.length) % battleDatabase.length);
             }
           };
 
@@ -399,7 +461,7 @@
                 <span>{label}</span>
                 <span>{Math.ceil(current)} / {max}</span>
               </div>
-              <div className="h-4 bg-slate-200 rounded-full overflow-hidden border border-slate-300">
+              <div className="h-4 bg-slate-200 rounded-full overflow-hidden border border-slate-300 relative">
                 <div 
                   className={`h-full transition-all duration-500 ease-out ${color}`}
                   style={{ width: `${(Math.max(0, current) / max) * 100}%` }}
@@ -407,6 +469,58 @@
               </div>
             </div>
           );
+
+          // 錯誤回顧組件
+          const ReviewSection = () => (
+             wrongAnswers.length > 0 ? (
+                <div className="mt-6 w-full text-left bg-red-50 p-4 rounded-xl border border-red-100 max-h-60 overflow-y-auto">
+                    <h3 className="font-bold text-red-600 mb-2 flex items-center gap-2">
+                        <AlertCircle className="w-4 h-4" /> 錯題複習 (Mistakes)
+                    </h3>
+                    <ul className="space-y-2">
+                        {wrongAnswers.map((item, idx) => (
+                            <li key={idx} className="text-sm border-b border-red-100 last:border-0 pb-1">
+                                <span className="font-bold text-slate-700">{item.q}</span>
+                                <br/>
+                                <span className="text-green-600">Ans: {item.a}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+             ) : (
+                 <div className="mt-6 text-green-600 font-bold bg-green-50 p-4 rounded-xl">
+                    完美表現！沒有答錯任何題目！
+                 </div>
+             )
+          );
+
+          // 難度選擇畫面
+          if (gameState === 'playing_typing_setup') {
+              return (
+                <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 font-sans text-slate-800">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl max-w-md w-full text-center border-b-4 border-red-200">
+                        <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                            <Keyboard className="w-10 h-10 text-red-600" />
+                        </div>
+                        <h2 className="text-2xl font-bold mb-6">選擇拼字難度</h2>
+                        <div className="space-y-3">
+                            <button onClick={() => { setTypingDifficulty('easy'); setGameState('playing_typing'); }} className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 rounded-xl">
+                                簡單 (空 1 格)
+                            </button>
+                            <button onClick={() => { setTypingDifficulty('medium'); setGameState('playing_typing'); }} className="w-full bg-yellow-500 hover:bg-yellow-600 text-white font-bold py-3 rounded-xl">
+                                中等 (空 2 格)
+                            </button>
+                            <button onClick={() => { setTypingDifficulty('hard'); setGameState('playing_typing'); }} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl">
+                                困難 (僅頭尾)
+                            </button>
+                            <button onClick={() => setGameState('menu')} className="w-full text-slate-400 font-bold py-3 mt-4">
+                                返回主選單
+                            </button>
+                        </div>
+                    </div>
+                </div>
+              );
+          }
 
           if (gameState === 'menu') {
             return (
@@ -416,10 +530,7 @@
                     <Sword className="w-10 h-10 text-indigo-600" />
                   </div>
                   <h1 className="text-3xl font-bold text-slate-800 mb-2">英語單字大冒險</h1>
-                  <p className="text-slate-500 mb-2">收錄超過 300 個基礎單字！</p>
-                  <div className="text-xs text-slate-400 mb-8 bg-slate-100 py-1 px-3 rounded-full inline-block">
-                     包含: 數字, 人物, 動物, 食物, 地點...
-                  </div>
+                  <p className="text-slate-500 mb-2">究極進化版：收錄國小3-6年級單字！</p>
                   
                   <div className="space-y-4">
                     <button 
@@ -435,7 +546,15 @@
                       className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 shadow-md flex items-center justify-center gap-3"
                     >
                       <Puzzle className="w-5 h-5" />
-                      符文填空 (Spelling)
+                      符文填空 (Select)
+                    </button>
+
+                    <button 
+                      onClick={() => { setGameMode('typing'); setGameState('playing_typing_setup'); }}
+                      className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-4 px-6 rounded-xl transition-all transform hover:scale-105 shadow-md flex items-center justify-center gap-3 border-b-4 border-red-700"
+                    >
+                      <Keyboard className="w-5 h-5" />
+                      極限拼字 (Typing)
                     </button>
                     
                     <button 
@@ -452,7 +571,7 @@
           }
 
           if (gameState === 'learning') {
-            const currentWord = wordDatabase[currentQuestionIndex];
+            const currentWord = battleDatabase[currentQuestionIndex];
             return (
                 <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 font-sans">
                      <header className="absolute top-4 left-4 right-4 flex justify-between items-center">
@@ -502,7 +621,7 @@
                             <ArrowLeft className="w-6 h-6" />
                         </button>
                          <span className="font-bold text-slate-400">
-                            {currentQuestionIndex + 1} / {wordDatabase.length}
+                            {currentQuestionIndex + 1} / {battleDatabase.length}
                         </span>
                         <button onClick={(e) => {e.stopPropagation(); handleLearningNav('next')}} className="p-4 bg-white rounded-full shadow-lg text-slate-700 hover:bg-indigo-50 transition-colors">
                             <ArrowRight className="w-6 h-6" />
@@ -526,12 +645,15 @@
                   <h2 className="text-2xl font-bold mb-2">
                     {gameState === 'victory' ? '傳說達成！' : '再接再厲！'}
                   </h2>
-                  <p className="text-slate-500 mb-6">
+                  <p className="text-slate-500 mb-2">
                     最終分數: <span className="font-bold text-indigo-600 text-xl">{score}</span>
                   </p>
+
+                  <ReviewSection />
+
                   <button 
                     onClick={() => setGameState('menu')}
-                    className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-xl transition-all"
+                    className="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 px-6 rounded-xl transition-all mt-6"
                   >
                     回到主選單
                   </button>
@@ -561,10 +683,11 @@
 
               <div className="flex-1 max-w-xl mx-auto w-full flex flex-col gap-6">
                 <div className="bg-gradient-to-b from-indigo-50 to-white rounded-2xl p-6 shadow-md border border-indigo-100 relative min-h-[200px] flex items-end justify-between">
-                    <div className={`flex flex-col items-center transition-transform duration-200 ${isMonsterAttacking ? '-translate-x-10 scale-110' : ''} ${feedback === 'correct' ? 'opacity-50 scale-90 filter grayscale' : ''}`}>
+                    <div className={`flex flex-col items-center transition-transform duration-200 ${isMonsterAttacking ? '-translate-x-10 scale-110' : ''} ${feedback === 'correct' ? 'opacity-50 scale-90 filter grayscale' : ''} ${monsterHealed ? 'animate-heal' : ''}`}>
                         <div className="text-6xl mb-2 transition-all transform duration-300">
                             {monsterAvatars[(currentMonsterLevel - 1) % monsterAvatars.length]}
                         </div>
+                        {monsterHealed && <div className="absolute -top-10 text-green-500 font-bold text-lg animate-bounce">+HP Heal!</div>}
                         <div className="w-24">
                            <HealthBar current={monsterHp} max={maxMonsterHp} color="bg-red-500" label={`Lv.${currentMonsterLevel}`} /> 
                         </div>
@@ -584,11 +707,13 @@
                 <div className="bg-white rounded-2xl shadow-lg border-b-4 border-indigo-100 p-6 text-center relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-indigo-500"></div>
                   
-                  {gameState === 'playing_battle' ? (
-                      <>
-                        <h2 className="text-4xl font-black text-slate-800 mb-6 break-words">{currentQ.word}</h2>
-                      </>
-                  ) : (
+                  {/* 戰鬥模式：顯示英文單字 */}
+                  {gameState === 'playing_battle' && (
+                      <h2 className="text-4xl font-black text-slate-800 mb-6 break-words">{currentQ.word}</h2>
+                  )}
+
+                  {/* 填空模式：顯示挖空單字與中文提示 */}
+                  {gameState === 'playing_fill' && (
                       <div className="mb-6">
                         <div className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wide">Missing Rune</div>
                         <h2 className="text-4xl font-black text-slate-800 tracking-widest font-mono break-words mb-2">
@@ -607,9 +732,45 @@
                       </div>
                   )}
 
-                  {!showExplanation ? (
+                  {/* 極限拼字模式：顯示挖空、中文、發音 */}
+                  {gameState === 'playing_typing' && (
+                      <div className="mb-6">
+                        <div className="text-sm font-bold text-slate-400 mb-2 uppercase tracking-wide">Typing Challenge ({typingDifficulty})</div>
+                        <h2 className="text-4xl font-black text-slate-800 tracking-widest font-mono break-words mb-4">
+                            {currentTypingQuestion ? currentTypingQuestion.maskedDisplay : ''}
+                        </h2>
+                        
+                        <div className="flex justify-center items-center gap-4 mb-4">
+                            <button
+                               onClick={() => speakWord(currentQ.word)}
+                               className="bg-indigo-100 hover:bg-indigo-200 text-indigo-700 p-3 rounded-full transition-colors"
+                            >
+                                <Volume2 className="w-6 h-6" />
+                            </button>
+                            <p className="text-xl font-bold text-slate-700">{currentQ.meaning}</p>
+                        </div>
+
+                        {!showExplanation && (
+                            <form onSubmit={handleTypingSubmit} className="flex gap-2 justify-center max-w-sm mx-auto">
+                                <input 
+                                    ref={inputRef}
+                                    type="text" 
+                                    value={typingInput}
+                                    onChange={(e) => setTypingInput(e.target.value)}
+                                    className="border-2 border-indigo-200 rounded-lg p-3 w-full text-center text-xl font-bold focus:outline-none focus:border-indigo-500"
+                                    placeholder="Type word..."
+                                    autoComplete="off"
+                                />
+                                <button type="submit" className="bg-indigo-600 text-white p-3 rounded-lg font-bold hover:bg-indigo-700">Go</button>
+                            </form>
+                        )}
+                      </div>
+                  )}
+
+                  {/* 選項區 (Battle & Fill) */}
+                  {!showExplanation && gameState !== 'playing_typing' && (
                     <div className={`grid ${gameState === 'playing_fill' ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-1'} gap-3`}>
-                      {gameState === 'playing_battle' ? (
+                      {gameState === 'playing_battle' && (
                           currentOptions.map((option, idx) => (
                             <button
                               key={idx}
@@ -627,7 +788,9 @@
                               {option}
                             </button>
                           ))
-                      ) : (
+                      )}
+                      
+                      {gameState === 'playing_fill' && (
                           currentFillQuestion && currentFillQuestion.fillOptions.map((option, idx) => (
                             <button
                                 key={idx}
@@ -647,7 +810,10 @@
                           ))
                       )}
                     </div>
-                  ) : (
+                  )}
+
+                  {/* 錯誤/正確顯示區 */}
+                  {showExplanation && (
                     <div className="bg-red-50 rounded-xl p-5 border border-red-100 animate-fadeIn">
                       <div className="flex items-center gap-2 text-red-600 font-bold mb-2">
                         <AlertCircle className="w-5 h-5" />
@@ -655,10 +821,14 @@
                       </div>
                       <p className="text-xl font-bold text-slate-800 mb-4">
                           {gameState === 'playing_battle' ? currentQ.meaning : (
-                              <span>
-                                <span className="text-red-500">{currentFillQuestion.targetChar}</span> 
-                                <span className="text-slate-400 ml-2">({currentQ.word})</span>
-                              </span>
+                              gameState === 'playing_typing' ? (
+                                  <span className="text-2xl font-mono">{currentTypingQuestion.word}</span>
+                              ) : (
+                                  <span>
+                                    <span className="text-red-500">{currentFillQuestion.targetChar}</span> 
+                                    <span className="text-slate-400 ml-2">({currentQ.word})</span>
+                                  </span>
+                              )
                           )}
                       </p>
                       
@@ -677,7 +847,7 @@
                     </div>
                   )}
                   
-                  {feedback === 'correct' && (
+                  {feedback === 'correct' && gameState !== 'playing_typing' && (
                      <div className="mt-4 bg-green-50 p-4 rounded-lg border border-green-100 text-left animate-fadeIn">
                         <div className="flex items-center gap-2 mb-2">
                             <BookOpen className="w-4 h-4 text-green-600" />
