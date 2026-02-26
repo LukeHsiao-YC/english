@@ -397,6 +397,13 @@
           '👾', '🐌', '🐍', '🕷️', '🦇', '🐺', '👻', '🦍', '👹', '🐲'
         ];
 
+        // Author Footer Component
+        const AuthorFooter = () => (
+            <div className="w-full text-center mt-auto pt-6 pb-2 text-slate-400 text-sm font-bold tracking-wider">
+                蕭宇超製作
+            </div>
+        );
+
         // --- 主應用程式 ---
         function App() {
           const [gameState, setGameState] = useState('vocab_select'); // 初始狀態改為選擇單字庫
@@ -963,6 +970,7 @@
                             <ArrowRight className="w-5 h-5" />
                         </button>
                     </div>
+                    <AuthorFooter />
                 </div>
               );
           }
@@ -991,6 +999,7 @@
                             </button>
                         </div>
                     </div>
+                    <AuthorFooter />
                 </div>
               );
           }
@@ -1044,6 +1053,7 @@
                     </button>
                   </div>
                 </div>
+                <AuthorFooter />
               </div>
             );
           }
@@ -1106,6 +1116,7 @@
                             <ArrowRight className="w-6 h-6" />
                         </button>
                     </div>
+                    <AuthorFooter />
                 </div>
             )
           }
@@ -1138,6 +1149,7 @@
                     回到主選單
                   </button>
                 </div>
+                <AuthorFooter />
               </div>
             );
           }
@@ -1339,6 +1351,7 @@
                   )}
                 </div>
               </div>
+              <AuthorFooter />
             </div>
           );
         }
